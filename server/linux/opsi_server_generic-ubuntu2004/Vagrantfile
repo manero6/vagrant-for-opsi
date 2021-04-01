@@ -1,0 +1,42 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VM_BOX = ENV["VM_BOX"] || "generic/ubuntu2004"
+VM_RAM = ENV["VM_RAM"] || "1024"
+VM_CPU = ENV["VM_CPU"] || "2"
+
+NON_INT = "DEBIAN_FRONTEND=noninteractive"
+
+REPO_DEV = "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/4.2:/development/xUbuntu_20.04/"
+REPO_EXP = "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/4.2:/experimental/xUbuntu_20.04/"
+REPO_TEST = "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/4.2:/testing/xUbuntu_20.04/"
+
+Vagrant.configure("2") do |config|
+
+  config.vm.box = VM_BOX
+
+  config.vm.provider "libvirt" do |lv|
+      lv.memory = VM_RAM
+      lv.cpus = VM_CPU
+      lv.graphics_type = "spice"
+      lv.video_type = "qxl"
+      lv.channel type: "spicevmc", target_name: "com.redhat.spice.0", target_type: "virtio"
+      lv.channel type: "unix", target_name: "org.qemu.guest_agent.0", target_type: "virtio"
+  end
+  config.vm.provider "virtualbox" do |vb|
+      vb.memory = VM_RAM
+      vb.cpus = VM_CPU
+  end
+
+  config.vm.define "ubuntu" do |vm|
+    vm.vm.hostname = "ubuntu"
+    vm.vm.provision "repo_opsi", type: "shell", inline: %Q[echo "deb #{REPO_DEV} /" > /etc/apt/sources.list.d/opsi.list]
+    vm.vm.provision "repo_opsi_key", type: "shell", inline: "wget #{REPO_DEV}Release.key && apt-key add Release.key"
+    vm.vm.provision "update", type: "shell", inline: "apt-get update"
+    vm.vm.provision "samba", type: "shell", inline: "#{NON_INT} apt-get install -yq samba samba-common smbclient cifs-utils"
+    vm.vm.provision "mysql", type: "shell", inline: "#{NON_INT} apt-get install -yq mysql-server"
+    vm.vm.provision "opsi", type: "shell", inline: "#{NON_INT} apt-get install -yq opsi-tftpd-hpa opsi-server opsi-windows-support"
+    vm.vm.provision "reboot", type: "shell", inline: "reboot"
+  end
+
+end
